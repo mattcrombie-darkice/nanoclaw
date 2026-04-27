@@ -1,0 +1,31 @@
+name: Sync fork with upstream
+
+on:
+  schedule:
+    - cron: '0 17 * * *'  # 3am AEST (UTC+10) = 5pm UTC
+  workflow_dispatch:       # allow manual trigger
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout fork
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Add upstream remote
+        run: git remote add upstream https://github.com/qwibitai/nanoclaw.git
+
+      - name: Fetch upstream
+        run: git fetch upstream
+
+      - name: Merge upstream/main
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git merge upstream/main --no-edit --allow-unrelated-histories || echo "Nothing to merge or conflicts detected"
+
+      - name: Push to fork
+        run: git push origin main
