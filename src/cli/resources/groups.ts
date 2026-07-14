@@ -74,7 +74,7 @@ registerResource({
       description:
         'Create (or return the existing) agent group with its container config. Idempotent on --folder. ' +
         'With --template <ref>, stamp from a local template under templates/ (MCP servers + instructions ' +
-        '+ skills). Use --folder <slug> and --name <display name>.',
+        '+ skills + paused recurring tasks). Use --folder <slug> and --name <display name>.',
       handler: async (args) => {
         if (args.template) {
           return createAgentFromTemplate(String(args.template), {
@@ -99,7 +99,9 @@ registerResource({
         // backfill ran (#2415). The template branch above provisions its own
         // config + folder in `createAgentFromTemplate`; this covers the bare
         // path. Mirrors what `setup/register.ts` does after creating an agent
-        // group via the setup flow.
+        // group via the setup flow. The config row is stamped with the
+        // instance default provider (`ensureContainerConfig` inside) — per-group
+        // `groups config update --provider` still wins.
         initGroupFilesystem(group);
         return getAgentGroupByFolder(folder);
       },
