@@ -258,7 +258,9 @@ async function main(): Promise<void> {
       brandBody(dimWrap('Your assistant lives in its own sandbox. It can only see what you explicitly share.', 4)),
     );
     // Asked before the step runs, because the step is what acts on the answer.
-    await chooseImageSource();
+    // An explicit "build it here" is a decision; the perk reminder for this
+    // question is only for installs that fell back to a local build unasked.
+    if ((await chooseImageSource()) === 'local') skip.add('echo-reminder');
     p.log.message(
       brandBody(
         dimWrap(
@@ -744,6 +746,9 @@ async function main(): Promise<void> {
       }
       if (result === BACK_TO_CHANNEL_SELECTION) backed = true;
     }
+    // Any answer to the chooser is a decision. The perk reminder for this
+    // question is only for runs that never reached the chooser.
+    skip.add('slack-reminder');
   }
   // Deferred wire (Teams): verify passes with zero groups because the
   // platform id only exists after the first DM. Tracked here so the ENDING
@@ -1361,7 +1366,8 @@ async function askNewTemplateAgentName(agents: readonly AgentGroup[], initialVal
  * Returns having done nothing when the question is already settled, which also
  * covers `NANOCLAW_HARDENED_IMAGE=true` passed in by a packaged flow.
  */
-async function chooseImageSource(): Promise<void> {
+/** Resolves to the operator's pick when the question was asked, else undefined. */
+async function chooseImageSource(): Promise<ImageSource | undefined> {
   if (imageSourceDecided()) return;
 
   // The runtime pick happens later (the auth step), so this is the best signal
@@ -1438,7 +1444,7 @@ async function chooseImageSource(): Promise<void> {
   phEmit('image_source_chosen', { source: choice });
 
   writeImageSource(choice);
-  if (choice === 'local') return;
+  if (choice === 'local') return choice;
 
   if (!loginScriptAvailable()) {
     p.log.warn(brandBody(`This copy of NanoClaw has no ${REGISTRY_LOGIN_SCRIPT} — building the sandbox here instead.`));
