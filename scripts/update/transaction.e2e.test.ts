@@ -263,14 +263,24 @@ describe('update-nanoclaw transaction end to end', () => {
     fs.chmodSync(pnpm, 0o755);
     const previousPath = process.env.PATH;
     process.env.PATH = `${bin}${path.delimiter}${previousPath ?? ''}`;
-    const { runtime } = fakeRuntime(fixture.install);
+    const { runtime, events } = fakeRuntime(fixture.install);
+    const loadGateway = runtime.loadGateway;
+    runtime.loadGateway = (root) => {
+      events.push('gateway loaded');
+      return loadGateway(root);
+    };
 
     try {
       let state = prepareUpdate({ projectRoot: fixture.install, upstreamRef: 'upstream/main' }, runtime);
       state = await validateUpdate(fixture.install, state.id, runtime);
+      const beforeCutover = events.length;
       state = await cutoverUpdate(fixture.install, state.id, runtime);
 
       expect(state.phase).toBe('cutover');
+      // tsx compiles each import with the esbuild it started with, and the install can replace it.
+      const cutover = events.slice(beforeCutover);
+      expect(cutover).toContain('gateway loaded');
+      expect(cutover.indexOf('gateway loaded')).toBeLessThan(cutover.indexOf('pnpm install --frozen-lockfile'));
       expect(fs.readFileSync(path.join(fixture.install, 'src/gateway-providers/installed.ts'), 'utf8')).toContain(
         "import './onecli.js';",
       );
